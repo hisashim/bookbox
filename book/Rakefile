@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+
+C ||= CONFIG = {}
+
+C[:USER]  ||= ENV['USER'] || 'unknown_user'
+C[:REPOS] ||= ENV['REPOS'] || File.basename(Dir.pwd)
+C[:HOST_DIR] ||= ENV['HOST_DIR'] || Dir.pwd + '/host_dir'
+C[:CONTAINER_DIR] ||= ENV['CONTAINER_DIR'] || '/var/tmp/docker'
+C[:CMD] ||= ENV['CMD'] || 'uname -a'
+
+desc 'Build an image'
+task :build do |t|
+  sh "docker build --tag=#{C[:USER]}/#{C[:REPOS]} ."
+end
+
+desc 'Remove the image'
+task :clean do |t|
+  sh "docker rmi #{C[:USER]}/#{C[:REPOS]}; echo Info: exit status: $?"
+end
+
+desc 'Run a container from the image'
+directory C[:HOST_DIR]
+task :run => C[:HOST_DIR] do |t|
+  sa = ssh_agent = `readlink -f $SSH_AUTH_SOCK`.chomp
+  hh = host_home = `readlink -f $HOME`.chomp
+  ch = container_home = '/root'
+  sh "docker run" +
+     " --volume=#{C[:HOST_DIR]}:#{C[:CONTAINER_DIR]}" +
+     " --volume=#{sa}:#{sa} -e SSH_AUTH_SOCK=#{sa}" +
+     " --volume=#{hh}/.ssh/known_hosts:#{ch}/.ssh/known_hosts" +
+     " #{C[:USER]}/#{C[:REPOS]}" +
+     " #{C[:CMD]}"
+end
+
+task :default => :build
